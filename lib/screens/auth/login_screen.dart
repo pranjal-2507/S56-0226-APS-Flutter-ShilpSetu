@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../widgets/custom_textfield.dart';
 import '../../widgets/custom_button.dart';
 import '../../core/constants/colors.dart';
 import '../../core/constants/text_styles.dart';
-import '../../providers/auth_provider.dart';
-import 'signup_screen.dart';
+import '../../core/validators/auth_validators.dart';
+import '../../providers/auth_provider.dart' as app_auth;
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -27,14 +28,23 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _doLogin() async {
-    final auth = context.read<AuthProvider>();
+    final auth = context.read<app_auth.AuthProvider>();
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     final email = _emailCtrl.text.trim();
     final password = _passCtrl.text;
 
-    if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Email and password are required')),
+    // Validate email format
+    if (!AuthValidators.isValidEmail(email)) {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text(AuthValidators.getEmailValidationError(email))),
+      );
+      return;
+    }
+
+    if (password.isEmpty) {
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(content: Text('Password is required')),
       );
       return;
     }
@@ -43,21 +53,27 @@ class _LoginScreenState extends State<LoginScreen> {
       await auth.login(email, password);
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      scaffoldMessenger.showSnackBar(
         const SnackBar(content: Text('Logged in successfully')),
       );
-
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      // Use the generic error message from auth provider
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text(e.message ?? 'An error occurred. Please try again.')),
+      );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+      // Never expose full exception details to user
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(content: Text('An error occurred. Please try again.')),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthProvider>();
+    final auth = context.watch<app_auth.AuthProvider>();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -127,12 +143,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Center(
                       child: TextButton(
                         onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const SignupScreen(),
-                            ),
-                          );
+                          Navigator.pushNamed(context, '/signup');
                         },
                         child:
                             const Text("Don't have an account? Sign up"),
@@ -148,4 +159,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-ur

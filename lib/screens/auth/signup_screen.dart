@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 
 import '../../widgets/custom_textfield.dart';
 import '../../widgets/custom_button.dart';
 import '../../core/constants/colors.dart';
 import '../../core/constants/text_styles.dart';
+import '../../core/validators/auth_validators.dart';
 import '../../providers/auth_provider.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -27,13 +29,23 @@ class _SignupScreenState extends State<SignupScreen> {
 
   Future<void> _createAccount() async {
     final auth = context.read<AuthProvider>();
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     final email = _emailCtrl.text.trim();
     final password = _passCtrl.text;
 
-    if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Email and password are required')),
+    // Validate email format
+    if (!AuthValidators.isValidEmail(email)) {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text(AuthValidators.getEmailValidationError(email))),
+      );
+      return;
+    }
+
+    // Validate password strength
+    if (!AuthValidators.isValidPassword(password)) {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text(AuthValidators.getPasswordValidationError(password))),
       );
       return;
     }
@@ -42,15 +54,22 @@ class _SignupScreenState extends State<SignupScreen> {
       await auth.signup(email, password);
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      scaffoldMessenger.showSnackBar(
         const SnackBar(content: Text('Account created successfully')),
       );
 
       Navigator.pop(context);
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      // Use the generic error message from auth provider
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text(e.message ?? 'An error occurred. Please try again.')),
+      );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+      // Never expose full exception details to user
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(content: Text('An error occurred. Please try again.')),
       );
     }
   }
@@ -133,4 +152,3 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 }
-e
